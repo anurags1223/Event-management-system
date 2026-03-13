@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EventFlow — Event Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#f5f4f0; --surface:#ffffff; --card:#ffffff; --border:#e4e2dc;
+    --accent:#1a1a2e; --accent2:#e05c5c; --text:#1a1a2e; --muted:#8a8880;
+    --work:#2563eb; --personal:#d97706; --social:#dc2626; --health:#16a34a; --other:#7c3aed;
+    --shadow:0 1px 3px rgba(0,0,0,.07),0 4px 12px rgba(0,0,0,.05);
+    --shadow-hover:0 4px 16px rgba(0,0,0,.12),0 1px 4px rgba(0,0,0,.06);
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+  header{display:flex;align-items:center;justify-content:space-between;padding:18px 40px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(245,244,240,.92);backdrop-filter:blur(12px);z-index:100}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--accent);letter-spacing:2px}
+  .logo span{color:var(--muted)}
+  .stats{display:flex;gap:32px}
+  .stat{text-align:center}
+  .stat-num{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--accent)}
+  .stat-label{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px}
+
+  .app{display:grid;grid-template-columns:360px 1fr;min-height:calc(100vh - 69px)}
+
+  .sidebar{background:var(--surface);border-right:1px solid var(--border);padding:28px;display:flex;flex-direction:column;gap:18px;position:sticky;top:69px;height:calc(100vh - 69px);overflow-y:auto}
+  .sidebar h2{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--muted);letter-spacing:2px}
+
+  .form-group{display:flex;flex-direction:column;gap:5px}
+  label{font-size:.68rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600}
+  input,select,textarea{background:var(--bg);border:1.5px solid var(--border);color:var(--text);padding:9px 13px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none;transition:border-color .2s,box-shadow .2s;width:100%}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(26,26,46,.08);background:#fff}
+  textarea{resize:vertical;min-height:68px}
+  select option{background:#fff}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+  .btn{padding:10px 18px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.86rem;font-weight:600;cursor:pointer;border:none;transition:all .18s;letter-spacing:.2px}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:#2d2d4e;transform:translateY(-1px);box-shadow:0 4px 12px rgba(26,26,46,.2)}
+  .btn-secondary{background:transparent;color:var(--muted);border:1.5px solid var(--border)}
+  .btn-secondary:hover{border-color:var(--muted);color:var(--text);background:var(--bg)}
+  .btn-danger{background:var(--accent2);color:#fff}
+  .btn-danger:hover{background:#c74a4a}
+  .form-actions{display:flex;gap:8px}
+
+  .main{padding:28px 36px}
+  .filter-bar{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;align-items:center}
+  .filter-bar input{max-width:220px;background:#fff}
+  .chip{padding:6px 14px;border-radius:20px;font-size:.76rem;font-weight:500;cursor:pointer;border:1.5px solid var(--border);background:#fff;color:var(--muted);transition:all .18s}
+  .chip:hover{border-color:var(--accent);color:var(--accent)}
+  .chip[data-cat="all"].active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .chip[data-cat="work"].active{background:var(--work);border-color:var(--work);color:#fff}
+  .chip[data-cat="personal"].active{background:var(--personal);border-color:var(--personal);color:#fff}
+  .chip[data-cat="social"].active{background:var(--social);border-color:var(--social);color:#fff}
+  .chip[data-cat="health"].active{background:var(--health);border-color:var(--health);color:#fff}
+  .chip[data-cat="other"].active{background:var(--other);border-color:var(--other);color:#fff}
+
+  .events-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(272px,1fr));gap:14px}
+
+  .event-card{background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:20px;transition:all .2s;position:relative;overflow:hidden;animation:fadeIn .3s ease;box-shadow:var(--shadow)}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  .event-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--cat-color,var(--border))}
+  .event-card:hover{border-color:var(--cat-color,var(--border));transform:translateY(-2px);box-shadow:var(--shadow-hover)}
+
+  .card-header{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px}
+  .event-title{font-weight:600;font-size:.96rem;line-height:1.3;color:var(--text)}
+  .cat-badge{font-size:.62rem;text-transform:uppercase;letter-spacing:.8px;font-weight:700;padding:3px 8px;border-radius:12px;background:color-mix(in srgb,var(--cat-color) 12%,transparent);color:var(--cat-color);white-space:nowrap;border:1px solid color-mix(in srgb,var(--cat-color) 20%,transparent)}
+  .event-desc{font-size:.81rem;color:var(--muted);line-height:1.55;margin-bottom:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .event-meta{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+  .meta-item{display:flex;align-items:center;gap:6px;font-size:.76rem;color:var(--muted)}
+  .card-actions{display:flex;gap:7px}
+  .card-actions .btn{padding:7px 12px;font-size:.76rem;flex:1}
+
+  .divider{height:1px;background:var(--border);margin:4px 0}
+
+  .empty{text-align:center;padding:80px 40px;color:var(--muted);grid-column:1/-1}
+  .empty .empty-icon{font-size:2.8rem;margin-bottom:14px}
+  .empty h3{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--text);margin-bottom:6px}
+  .empty p{font-size:.85rem}
+
+  .toast{position:fixed;bottom:24px;right:24px;background:#fff;border:1.5px solid var(--border);border-left:3px solid var(--accent);padding:13px 18px;border-radius:10px;font-size:.84rem;z-index:999;animation:slideIn .3s ease;box-shadow:0 8px 24px rgba(0,0,0,.12);color:var(--text)}
+  @keyframes slideIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(26,26,46,.25);backdrop-filter:blur(6px);z-index:200;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease}
+  .modal{background:#fff;border:1.5px solid var(--border);border-radius:16px;padding:32px;max-width:440px;width:90%;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+  .modal h3{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;margin-bottom:16px;color:var(--text)}
+  .modal-actions{display:flex;gap:10px;margin-top:22px}
+  .close-btn{position:absolute;top:14px;right:14px;background:var(--bg);border:1.5px solid var(--border);color:var(--muted);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;transition:all .18s}
+  .close-btn:hover{color:var(--text);border-color:var(--muted)}
+
+  .priority{display:inline-flex;align-items:center;gap:5px;font-size:.74rem;color:var(--muted)}
+  .dot{width:6px;height:6px;border-radius:50%}
+  .dot.high{background:var(--accent2)}.dot.medium{background:#f59e0b}.dot.low{background:var(--health)}
+
+  ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Event<span>Flow</span></div>
+  <div class="stats">
+    <div class="stat"><div class="stat-num" id="totalStat">0</div><div class="stat-label">Total</div></div>
+    <div class="stat"><div class="stat-num" id="upcomingStat">0</div><div class="stat-label">Upcoming</div></div>
+    <div class="stat"><div class="stat-num" id="todayStat">0</div><div class="stat-label">Today</div></div>
+  </div>
+</header>
+
+<div class="app">
+  <aside class="sidebar">
+    <h2 id="formTitle">New Event</h2>
+    <div class="divider"></div>
+    <div class="form-group"><label>Event Title *</label><input type="text" id="title" placeholder="e.g. Team Standup" maxlength="60"></div>
+    <div class="form-group"><label>Description</label><textarea id="desc" placeholder="What's this event about?"></textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label>Date *</label><input type="date" id="date"></div>
+      <div class="form-group"><label>Time</label><input type="time" id="time"></div>
+    </div>
+    <div class="form-group"><label>Location</label><input type="text" id="location" placeholder="e.g. Conference Room B"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Category</label>
+        <select id="category"><option value="work">Work</option><option value="personal">Personal</option><option value="social">Social</option><option value="health">Health</option><option value="other">Other</option></select>
+      </div>
+      <div class="form-group"><label>Priority</label>
+        <select id="priority"><option value="medium">Medium</option><option value="high">High</option><option value="low">Low</option></select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" style="flex:1" onclick="saveEvent()">Save Event</button>
+      <button class="btn btn-secondary" onclick="resetForm()">Clear</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="filter-bar">
+      <input type="text" id="search" placeholder="🔍  Search events…" oninput="renderEvents()">
+      <div class="chip active" data-cat="all" onclick="setFilter('all',this)">All</div>
+      <div class="chip" data-cat="work" onclick="setFilter('work',this)">Work</div>
+      <div class="chip" data-cat="personal" onclick="setFilter('personal',this)">Personal</div>
+      <div class="chip" data-cat="social" onclick="setFilter('social',this)">Social</div>
+      <div class="chip" data-cat="health" onclick="setFilter('health',this)">Health</div>
+      <div class="chip" data-cat="other" onclick="setFilter('other',this)">Other</div>
+      <select class="btn btn-secondary" id="sortBy" onchange="renderEvents()" style="margin-left:auto;padding:7px 12px;max-width:150px">
+        <option value="date-asc">Date ↑</option><option value="date-desc">Date ↓</option>
+        <option value="title">Title A–Z</option><option value="priority">Priority</option>
+      </select>
+    </div>
+    <div class="events-grid" id="eventsGrid"></div>
+  </main>
+</div>
+
+<div class="modal-bg" id="deleteModal" style="display:none">
+  <div class="modal">
+    <button class="close-btn" onclick="closeModal()">✕</button>
+    <h3>Delete Event?</h3>
+    <p style="color:var(--muted);font-size:.88rem;line-height:1.5">This cannot be undone. The event "<strong id="deleteEventTitle" style="color:var(--text)"></strong>" will be permanently removed.</p>
+    <div class="modal-actions">
+      <button class="btn btn-danger" style="flex:1" onclick="confirmDelete()">Yes, Delete</button>
+      <button class="btn btn-secondary" style="flex:1" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CATS={work:'#2563eb',personal:'#d97706',social:'#dc2626',health:'#16a34a',other:'#7c3aed'};
+const ICONS={work:'💼',personal:'🌟',social:'🎉',health:'💚',other:'📌'};
+const PRIO={high:0,medium:1,low:2};
+let events=JSON.parse(localStorage.getItem('ef_events')||'[]'),editId=null,deleteId=null,activeFilter='all';
+
+document.getElementById('date').value=new Date().toISOString().split('T')[0];
+
+function saveEvent(){
+  const title=document.getElementById('title').value.trim(),date=document.getElementById('date').value;
+  if(!title||!date)return toast('Title and date are required',true);
+  const ev={id:editId||Date.now(),title,desc:document.getElementById('desc').value.trim(),
+    date,time:document.getElementById('time').value,location:document.getElementById('location').value.trim(),
+    category:document.getElementById('category').value,priority:document.getElementById('priority').value,
+    created:editId?(events.find(e=>e.id===editId)?.created||Date.now()):Date.now()};
+  if(editId){events=events.map(e=>e.id===editId?ev:e);toast('Event updated ✓');}
+  else{events.unshift(ev);toast('Event created ✓');}
+  persist();resetForm();renderEvents();
+}
+
+function editEvent(id){
+  const ev=events.find(e=>e.id===id);if(!ev)return;
+  editId=id;document.getElementById('formTitle').textContent='Edit Event';
+  ['title','desc','date','time','location','category','priority'].forEach(f=>document.getElementById(f).value=ev[f]||'');
+  document.querySelector('.sidebar').scrollIntoView({behavior:'smooth'});
+}
+
+function deleteEvent(id){deleteId=id;document.getElementById('deleteEventTitle').textContent=events.find(e=>e.id===id)?.title;document.getElementById('deleteModal').style.display='flex';}
+function confirmDelete(){events=events.filter(e=>e.id!==deleteId);persist();closeModal();renderEvents();toast('Event deleted');}
+function closeModal(){document.getElementById('deleteModal').style.display='none';deleteId=null;}
+
+function resetForm(){
+  editId=null;document.getElementById('formTitle').textContent='New Event';
+  ['title','desc','location'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('time').value='';
+  document.getElementById('category').value='work';document.getElementById('priority').value='medium';
+}
+
+function setFilter(cat,el){activeFilter=cat;document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');renderEvents();}
+
+function renderEvents(){
+  const q=document.getElementById('search').value.toLowerCase(),sort=document.getElementById('sortBy').value,today=new Date().toISOString().split('T')[0];
+  let f=events.filter(ev=>(activeFilter==='all'||ev.category===activeFilter)&&(!q||ev.title.toLowerCase().includes(q)||(ev.desc||'').toLowerCase().includes(q)||(ev.location||'').toLowerCase().includes(q)));
+  f.sort((a,b)=>sort==='date-asc'?a.date.localeCompare(b.date):sort==='date-desc'?b.date.localeCompare(a.date):sort==='title'?a.title.localeCompare(b.title):PRIO[a.priority]-PRIO[b.priority]);
+  document.getElementById('totalStat').textContent=events.length;
+  document.getElementById('upcomingStat').textContent=events.filter(e=>e.date>=today).length;
+  document.getElementById('todayStat').textContent=events.filter(e=>e.date===today).length;
+  const grid=document.getElementById('eventsGrid');
+  if(!f.length){grid.innerHTML=`<div class="empty"><div class="empty-icon">📭</div><h3>No Events Found</h3><p>Try a different filter or create a new event.</p></div>`;return;}
+  grid.innerHTML=f.map(ev=>{
+    const color=CATS[ev.category]||'#888',icon=ICONS[ev.category]||'📌',isPast=ev.date<today;
+    const ds=new Date(ev.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+    return`<div class="event-card" style="--cat-color:${color};${isPast?'opacity:.55':''}">
+      <div class="card-header">
+        <div class="event-title">${esc(ev.title)}</div>
+        <span class="cat-badge">${icon} ${ev.category}</span>
+      </div>
+      ${ev.desc?`<div class="event-desc">${esc(ev.desc)}</div>`:''}
+      <div class="event-meta">
+        <div class="meta-item">📅 ${ds}${ev.time?' · '+fmt(ev.time):''}</div>
+        ${ev.location?`<div class="meta-item">📍 ${esc(ev.location)}</div>`:''}
+        <div class="meta-item">
+          <span class="priority"><span class="dot ${ev.priority}"></span>${ev.priority}</span>
+          ${isPast?'<span style="margin-left:8px;font-size:.68rem;color:var(--muted);background:var(--bg);padding:2px 7px;border-radius:10px;border:1px solid var(--border)">Past</span>':''}
+        </div>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-secondary" onclick="editEvent(${ev.id})">✏️ Edit</button>
+        <button class="btn btn-danger" onclick="deleteEvent(${ev.id})">🗑 Delete</button>
+      </div></div>`;
+  }).join('');
+}
+
+function fmt(t){const[h,m]=t.split(':').map(Number);return`${h%12||12}:${m.toString().padStart(2,'0')} ${h<12?'AM':'PM'}`;}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function persist(){localStorage.setItem('ef_events',JSON.stringify(events));}
+
+let tt;
+function toast(msg,err=false){clearTimeout(tt);let el=document.querySelector('.toast');if(el)el.remove();el=document.createElement('div');el.className='toast';el.style.borderLeftColor=err?'var(--accent2)':'#16a34a';el.textContent=msg;document.body.appendChild(el);tt=setTimeout(()=>el.remove(),2800);}
+
+if(!events.length){
+  const today=new Date().toISOString().split('T')[0],tom=new Date(Date.now()+86400000).toISOString().split('T')[0],next=new Date(Date.now()+3*86400000).toISOString().split('T')[0];
+  events=[
+    {id:1,title:'Team Sprint Review',desc:'Q4 retrospective with product and engineering.',date:today,time:'10:00',location:'Room 4A',category:'work',priority:'high',created:Date.now()},
+    {id:2,title:'Gym Session',desc:'Leg day + cardio.',date:today,time:'07:00',location:'City Gym',category:'health',priority:'medium',created:Date.now()},
+    {id:3,title:"Sarah's Birthday Dinner",desc:'Reservation at La Maison.',date:tom,time:'19:30',location:'La Maison Restaurant',category:'social',priority:'high',created:Date.now()},
+    {id:4,title:'Dentist Appointment',desc:'6-month checkup.',date:next,time:'14:00',location:'Dr. Park Dental',category:'health',priority:'low',created:Date.now()},
+    {id:5,title:'Product Launch Prep',desc:'Final review of marketing assets.',date:next,time:'11:00',location:'HQ War Room',category:'work',priority:'high',created:Date.now()},
+  ];persist();
+}
+renderEvents();
+</script>
+</body>
+</html>
